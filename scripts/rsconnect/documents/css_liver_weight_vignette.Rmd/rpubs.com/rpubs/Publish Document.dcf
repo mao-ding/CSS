@@ -1,0 +1,10 @@
+name: Publish Document
+title:
+username:
+account: rpubs
+server: rpubs.com
+hostUrl: rpubs.com
+appId: https://api.rpubs.com/api/v1/document/1223882/eb4951ff4de14618844d62925442dd38
+bundleId: https://api.rpubs.com/api/v1/document/1223882/eb4951ff4de14618844d62925442dd38
+url: http://rpubs.com/mding_mhir/1223882
+version: 1

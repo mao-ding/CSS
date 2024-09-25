@@ -1,0 +1,247 @@
+---
+title: "CSS liver weight vignette"
+author: "Mao Ding"
+date: "2024-09-23"
+output:
+  html_document:
+    df_print: paged
+  pdf_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE,warning = FALSE,message = FALSE,error = FALSE)
+```
+
+```{r include = FALSE}
+suppressPackageStartupMessages({
+library(tidyverse)
+library(dplyr)
+library(ggplot2)
+library(plotly)
+library(gt)
+library(data.table)
+library(DT)
+library(mixR)
+library(moments)
+library(fitdistrplus)
+library(DT)
+library(effsize)
+})
+```
+
+```{r, include = TRUE}
+setwd("/work/larylab/Mao_Ding/CSS/")
+```
+
+```{r, include = TRUE}
+liv_wt_b6_css10_css17 = readRDS("/work/larylab/Mao_Ding/CSS/results/liv_wt_b6_css10_css17.rds")
+liv_wt_b6 = readRDS("/work/larylab/Mao_Ding/CSS/results/liv_wt_b6.rds")
+liv_wt_css10 = readRDS("/work/larylab/Mao_Ding/CSS/results/liv_wt_css10.rds")
+liv_wt_css17 = readRDS("/work/larylab/Mao_Ding/CSS/results/liv_wt_css17.rds")
+liv_wt_b6_css10 = readRDS("/work/larylab/Mao_Ding/CSS/results/liv_wt_b6_css10.rds")
+liv_wt_b6_css17 = readRDS("/work/larylab/Mao_Ding/CSS/results/liv_wt_b6_css17.rds")
+```
+
+## Normalized_Liver_Weight Density Plot
+```{r, include = TRUE}
+### Normalized_Liver_Weight ###
+ggplotly(ggplot(liv_wt_b6_css10_css17, aes(x = Norm_Liv_Weight, fill = Strain, color = Strain)) +
+           geom_histogram(aes(y = after_stat(density)), position = "identity", alpha = 0.2, bins = 30) +
+           geom_density(alpha = 0.5) +
+           scale_fill_manual(values = c(2,3,4)) +
+           scale_color_manual(values = c(2,3,4)) +
+           scale_x_continuous(limits = c(0,0.08), breaks = seq(0, 0.08, by = 0.02), labels = seq(0, 0.08, by = 0.02)) +
+           theme_minimal() +
+           ggtitle("Density Plot by Strain") +
+           ylab("Density") +
+           xlab("Normalized_Liver_Weight"))
+```
+
+```{r,include=FALSE}
+ggplotly(ggplot(liv_wt_b6_css10_css17, aes(x = log(Liv_Weight), fill = Strain, color = Strain)) +
+           geom_histogram(aes(y = after_stat(density)), position = "identity", alpha = 0.2, bins = 30) +
+           geom_density(alpha = 0.5) +
+           scale_fill_manual(values = c(2,3,4)) +
+           scale_color_manual(values = c(2,3,4)) +
+           scale_x_continuous(limits = c(-0.2,1.4), breaks = seq(-0.2, 1.4, by = 0.5), labels = seq(-0.2, 1.4, by = 0.5)) +
+           theme_minimal() +
+           ggtitle("Density Plot by Strain") +
+           ylab("Density") +
+           xlab("Log_Normalized_Liver_Weight"))
+```
+
+```{r, include = TRUE, }
+df = data.frame(
+  Strain_1 = c("B6", "B6"),
+  Strain_2 = c("CSS10", "CSS17"),
+  n_1 = rep(length(liv_wt_b6$Norm_Liv_Weight), 2),
+  n_2 = c(length(liv_wt_css10$Norm_Liv_Weight), length(liv_wt_css17$Norm_Liv_Weight)),
+  mu_1 = rep(mean(liv_wt_b6$Norm_Liv_Weight), 2),
+  mu_2 = c(mean(liv_wt_css10$Norm_Liv_Weight), mean(liv_wt_css17$Norm_Liv_Weight)),
+  sd_1 = rep(sd(liv_wt_b6$Norm_Liv_Weight), 2),
+  sd_2 = c(sd(liv_wt_css10$Norm_Liv_Weight), sd(liv_wt_css17$Norm_Liv_Weight)),
+  median_1 = rep(median(liv_wt_b6$Norm_Liv_Weight), 2),
+  median_2 = c(median(liv_wt_css10$Norm_Liv_Weight), median(liv_wt_css17$Norm_Liv_Weight))
+)
+
+df = df %>%
+  mutate(mean_diff = abs(mu_2 - mu_1),
+         sd_ratio = sd_1/sd_2,
+         sampling_ratio = n_2/n_1)
+
+df = df %>%
+  mutate(MAD_1 = c(mean(abs(liv_wt_b6$Norm_Liv_Weight - mu_1[1])), mean(abs(liv_wt_b6$Norm_Liv_Weight - mu_1[2]))),
+         MAD_2 = c(mean(abs(liv_wt_css10$Norm_Liv_Weight - mu_2[1])), mean(abs(liv_wt_css17$Norm_Liv_Weight - mu_2[2]))))
+
+df = df %>%
+  mutate(Cohens_D = c(cohen.d(liv_wt_b6$Norm_Liv_Weight, liv_wt_css10$Norm_Liv_Weight)$estimate,
+                      cohen.d(liv_wt_b6$Norm_Liv_Weight, liv_wt_css17$Norm_Liv_Weight)$estimate))
+```
+
+
+```{r, include = TRUE}
+### Run bimodality using GmixR
+df = df %>%
+  mutate(Bimodality_GmixR_1_p = rep(bs.test(liv_wt_b6$Norm_Liv_Weight, ncomp = c(1,2))$pvalue, 2),
+         Bimodality_GmixR_2_p = c(bs.test(liv_wt_css10$Norm_Liv_Weight, ncomp = c(1,2))$pvalue,             
+                                  bs.test(liv_wt_css17$Norm_Liv_Weight, ncomp = c(1,2))$pvalue))
+```
+
+```{r, include = TRUE}
+
+# jarque.test performs the Jarque-Bera test on the given data sample to determine if the data are from a normal population
+df = df %>%
+     mutate(Normality_Jarque_Bera_1_p = rep(jarque.test(liv_wt_b6$Norm_Liv_Weight)$p, 2),
+            Normality_Jarque_Bera_2_p = c(jarque.test(liv_wt_css10$Norm_Liv_Weight)$p,
+                                  jarque.test(liv_wt_css17$Norm_Liv_Weight)$p))
+
+df[ , 5:ncol(df)] <- round(df[ , 5:ncol(df)], 3)
+``` 
+
+### Skewness & Kurtosis
+```{r, include = TRUE, fig.width = 10, fig.height = 5, message = FALSE, warning = FALSE}
+par(mfrow=c(1, 3))
+descdist(liv_wt_b6$Norm_Liv_Weight, boot = 500)
+title(main = "B6", line = 3)
+
+descdist(liv_wt_css10$Norm_Liv_Weight, boot = 500)
+title(main = "CSS10", line = 3)
+
+descdist(liv_wt_css17$Norm_Liv_Weight, boot = 500)
+title(main = "CSS17", line = 3)
+
+par(mfrow=c(1, 1))
+
+```
+
+```{r, include = TRUE}
+ds_df = as.data.frame(t(df))
+colnames(ds_df) = c("B6 vs CSS10", "B6 vs CSS17")
+```
+
+### Descriptive Statistics
+```{r, include = TRUE}
+datatable(ds_df, filter = 'top', options = list(pageLength = 20, autoWidth = TRUE), extensions = 'FixedColumns')
+```
+
+
+```{r, include = TRUE}
+### Variance Effect Test ###
+
+###########################
+### Levene's Test
+###########################
+b6_css10_n_liv_wt_levene_p = round(car::leveneTest(Norm_Liv_Weight ~ Strain, data = liv_wt_b6_css10)$`Pr(>F)`[1],3)
+b6_css17_n_liv_wt_levene_p = round(car::leveneTest(Norm_Liv_Weight ~ Strain, data = liv_wt_b6_css17)$`Pr(>F)`[1],3)
+
+```
+
+
+```{r, include = TRUE}
+### Mean Effect Test ###
+
+###########################
+### Ranked-ANOVA Test ###
+###########################
+b6_css10_n_liv_wt_rk_anova_p = round(anova(lm(rank(Norm_Liv_Weight) ~ Strain, data = liv_wt_b6_css10))$`Pr(>F)`[1],3)
+b6_css17_n_liv_wt_rk_anova_p = round(anova(lm(rank(Norm_Liv_Weight) ~ Strain, data = liv_wt_b6_css17))$`Pr(>F)`[1],3)
+
+```
+
+```{r, include = TRUE}
+#############################
+### Permutation(Raw) Test ###
+##############################
+meanDiff <- function(Value, Strain) {
+  abs(mean(Value[Strain == 1]) - mean(Value[Strain == 0]))
+}
+
+permutation_tests = function(temp_df,nperm,fxn,alpha) {
+  
+  # Get actual absolute mean difference.
+  actual_diff <- do.call(fxn, list(temp_df$Value, temp_df$Strain))
+  # Find shuffled mean differences.
+  shuffled_diff <- sapply(1:nperm, function(p){
+    shuffled_idx <- sample(1:nrow(temp_df))
+    shuffled_X <- temp_df$Strain[shuffled_idx]
+    return(do.call(fxn,list(temp_df$Value, shuffled_X)))
+  })
+  
+  percentile <- ecdf(shuffled_diff)
+  p = 1 - percentile(actual_diff)
+  return(list(p = p,diff = actual_diff, crit = quantile(shuffled_diff,p=c(alpha/2,(1-alpha/2)))))
+}
+
+############################
+## B6 vs CSS10
+############################
+liv_wt_b6_css10_temp <- liv_wt_b6_css10[,c(1,3)]
+colnames(liv_wt_b6_css10_temp) = c("Strain","Value")
+
+liv_wt_b6_css10_temp$Strain <- ifelse(liv_wt_b6_css10_temp$Strain == "B6", "0", "1")
+
+b6_css10_n_liv_wt_perm_raw_p = round(permutation_tests(temp_df = liv_wt_b6_css10_temp, nperm = 1000, fxn = meanDiff, alpha = 0.5)$p,3)
+
+#############################
+## B6 vs CSS17 ##
+#############################
+liv_wt_b6_css17_temp <- liv_wt_b6_css17[,c(1,3)]
+colnames(liv_wt_b6_css17_temp) = c("Strain","Value")
+
+liv_wt_b6_css17_temp$Strain <- ifelse(liv_wt_b6_css17_temp$Strain == "B6", "0", "1")
+
+b6_css17_n_liv_wt_perm_raw_p = round(permutation_tests(temp_df = liv_wt_b6_css17_temp, nperm = 1000, fxn = meanDiff, alpha = 0.5)$p,3)
+
+```
+
+```{r, include = TRUE}
+######################
+### PERMANOVA ###
+######################
+
+### B6 vs CSS10
+lv_wt_b6_css10_permaov_p = round(vegan::adonis2(liv_wt_b6_css10$Norm_Liv_Weight ~ liv_wt_b6_css10$Strain, data = liv_wt_b6_css10, method = "euc")$`Pr(>F)`[1],3)
+
+### B6 vs CSS17
+lv_wt_b6_css17_permaov_p = round(vegan::adonis2(liv_wt_b6_css17$Norm_Liv_Weight ~ liv_wt_b6_css17$Strain, data = liv_wt_b6_css17, method = "euc")$`Pr(>F)`[1],3)
+```
+
+```{r, include = TRUE}
+inf_df = df = data.frame(
+  Strain_1 = c("B6", "B6"),
+  Strain_2 = c("CSS10", "CSS17"),
+  Variance_Effect_Levene_p = c(b6_css10_n_liv_wt_levene_p, b6_css17_n_liv_wt_levene_p),
+  Mean_Effect_Rk_ANOVA_p = c(b6_css10_n_liv_wt_rk_anova_p, b6_css17_n_liv_wt_rk_anova_p),
+  Mean_Effect_Perm_Raw_p = c(b6_css10_n_liv_wt_perm_raw_p, b6_css17_n_liv_wt_perm_raw_p),
+  Mean_Effect_PERMANOVA_p = c(lv_wt_b6_css10_permaov_p, lv_wt_b6_css17_permaov_p)
+)
+
+inf_df = as.data.frame(t(inf_df))
+colnames(inf_df) = c("B6 vs CSS10", "B6 vs CSS17")
+
+```
+
+### Inference for Mean and Variance Effects
+```{r, include=TRUE}
+datatable(inf_df, filter = 'top', options = list(pageLength = 20, autoWidth = TRUE), extensions = 'FixedColumns')
+```

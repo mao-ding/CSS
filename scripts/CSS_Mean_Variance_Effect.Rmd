@@ -1,0 +1,44 @@
+---
+title: "CSS Mean Variance Effect Analysis"
+author: "Mao Ding"
+date: "2024-03-24"
+output:
+  html_document:
+    df_print: paged
+  pdf_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE,warning = FALSE,message = FALSE,error = FALSE)
+```
+
+```{r include = FALSE}
+suppressPackageStartupMessages({
+library(tidyverse)
+library(dplyr)
+library(openxlsx)
+library(gtsummary)
+library(gt)
+library(data.table)
+library(DT)
+})
+```
+
+```{r, include = TRUE}
+summary_aov_df = readRDS("/work/larylab/Mao_Ding/CSS/results/summary_aov_df.rds")
+summary_levene_df = readRDS("/work/larylab/Mao_Ding/CSS/results/summary_levene_df.rds")
+```
+### ANOVA
+```{r, include = TRUE}
+
+datatable(summary_aov_df, filter = 'top', options = list(pageLength = 20, autoWidth = TRUE), extensions = 'FixedColumns', colnames = c('ID' = 1)) %>%
+formatRound(digits = 3, columns = c('Sum_sq', 'Mean_sq', 'F_value', 'P_value')) %>%
+formatStyle(columns = "P_value", backgroundColor = styleInterval(0.05, c("lightgreen","white")))
+```
+### Levene
+```{r, include = TRUE}
+
+datatable(summary_levene_df, filter = 'top', options = list(pageLength = 20, autoWidth = TRUE), extensions = 'FixedColumns', colnames = c('ID' = 1)) %>%
+formatRound(digits = 3, columns = c('F_value', 'P_value')) %>%
+formatStyle(columns = "P_value", backgroundColor = styleInterval(0.05, c("lightgreen","white")))
+```
